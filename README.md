@@ -30,16 +30,21 @@ Los integrantes para el desarrollo del proyecto son los siguientes:
   <tbody>
     <tr>
       <td>1</td>
+      <td>Alexandra Fong Saravia</td>
+      <td>U202216001@upc.edu.pe</td>
+    </tr>
+    <tr>
+      <td>2</td>
       <td>Camila Adriana Ibarra Cabrera</td>
       <td>U202317287@upc.edu.pe</td>
     </tr>
     <tr>
-      <td>2</td>
+      <td>3</td>
       <td>Carlos Fabian Mendoza Quispe</td>
       <td>U20231C416@upc.edu.pe</td>
     </tr>
     <tr>
-      <td>3</td>
+      <td>4</td>
       <td>Patricia Lucía del Rosario Rojas Sánchez</td>
       <td>U202310474@upc.edu.pe</td>
     </tr>
