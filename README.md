@@ -426,8 +426,59 @@ class Visitor(CPPVisitor):
         return None
 
     def visitExprStmt(self, ctx: CPPParser.ExprStmtContext):
-        self.imprimir("Se calcula: " + ctx.expr().getText())
-        return None
+        mensaje = self.visit(ctx.expr())
+        if mensaje is not None:
+            self.imprimir(mensaje)
+        else:
+            self.imprimir("Se calcula: " + ctx.expr().getText())
+
+    def visitExprUnary(self, ctx: CPPParser.ExprUnaryContext):
+        l = list(ctx.getChildren())    # ('!'| '+'| '-') expr
+        op = l[0].getText()
+        sub = l[1].getText()
+        if op == '!':
+            return "Se niega " + sub
+        elif op == '+':
+            return "Se aplica signo positivo a " + sub
+        else:  # '-'
+            return "Se aplica signo negativo a " + sub
+
+    def visitExprPreIncDec(self, ctx: CPPParser.ExprPreIncDecContext):
+        l = list(ctx.getChildren())          # ('++'|'--') expr
+        op = l[0].getText()
+        var = l[1].getText()
+        if op == '++':
+            return "Se aumenta " + var + " en 1"
+        else:
+            return "Se disminuye " + var + " en 1"
+
+    def visitExprPostIncDec(self, ctx: CPPParser.ExprPostIncDecContext):
+        l = list(ctx.getChildren())          # expr ('++'|'--')
+        var = l[0].getText()
+        op  = l[1].getText()
+        if op == '++':
+            return "Se aumenta " + var + " en 1"
+        else:
+            return "Se disminuye " + var + " en 1"
+
+    def visitExprEq(self, ctx: CPPParser.ExprEqContext):
+        l = list(ctx.getChildren())          # expr ('=='|'!=') expr
+        op = l[1].getText()
+        op_txt = "igual a" if op == "==" else "distinto de"
+        return "Se compara: " + l[0].getText() + " " + op_txt + " " + l[2].getText()
+
+    def visitExprAnd(self, ctx: CPPParser.ExprAndContext):
+        l = list(ctx.getChildren())          # expr '&&' expr
+        left_txt  = l[0].getText()
+        right_txt = l[2].getText()
+        return "Se evalúa (" + left_txt + ") y (" + right_txt + ")"
+
+    def visitExprOr(self, ctx: CPPParser.ExprOrContext):
+        l = list(ctx.getChildren())          # expr '||' expr
+        left_txt  = l[0].getText()
+        right_txt = l[2].getText()
+        return "Se evalúa (" + left_txt + ") o (" + right_txt + ")"
+
 
     # if
     def visitIfStmt(self, ctx: CPPParser.IfStmtContext):
