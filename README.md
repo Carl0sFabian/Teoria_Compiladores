@@ -324,190 +324,234 @@ BLOCK_COMMENT: '/*' .*? '*/' -> skip ;
 ```
 ### 4. Visitor en Python (Visitor.py)
 ```bash
-from antlr4 import *
-from CPPLexer import CPPLexer
-from CPPParser import CPPParser
-from CPPVisitor import CPPVisitor
-
 class Visitor(CPPVisitor):
     def __init__(self):
-        self.ind = 0
+        self.sangria = 0  # nivel de sangría
 
-    def pad(self, s):
-        print("  " * self.ind + s)
+    def imprimir(self, texto):
+        print(("  " * self.sangria) + texto)
 
-    # ========== raíz ==========
-    def visitProg(self, ctx:CPPParser.ProgContext):
-        for ch in list(ctx.getChildren()):
-            self.visit(ch)
-        return None
-
-    # ========== declaraciones ==========
-    # decl : decltype ID '=' expr ';' | decltype ID ';'
-    def visitDecl(self, ctx:CPPParser.DeclContext):
-        kids = list(ctx.getChildren())  # [decltype, ID, ('=' expr)?, ';']
-        t = kids[0].getText()
-        name = kids[1].getText()
-        if len(kids) >= 5 and kids[2].getText() == '=':
-            self.pad(f"declarar {t} {name} ← {self._ppExpr(ctx.expr())}")
-        else:
-            self.pad(f"declarar {t} {name}")
-        return None
-
-    # ========== sentencias ==========
-    def visitBlock(self, ctx):
-        self.pad("inicio")
-        self.ind += 1
-        for ch in list(ctx.getChildren()):
-            # dentro hay decl | stmt repetidos
-            if isinstance(ch, (CPPParser.DeclContext, CPPParser.StmtContext)):
+    # program
+    def visitProg(self, ctx: CPPParser.ProgContext):
+        for ch in ctx.getChildren():
+            if ch.getChildCount() > 0:
                 self.visit(ch)
-        self.ind -= 1
-        self.pad("fin")
         return None
 
-    def visitAssign(self, ctx):
-        self.pad(f"{ctx.ID().getText()} ← {self._ppExpr(ctx.expr())}")
+    # para actualizar sangría cuando se inicie un bloque de codigo
+    def visitBlock(self, ctx: CPPParser.BlockContext):
+        self.sangria += 1
+        for ch in ctx.getChildren():
+            if ch.getChildCount() > 0:  
+                self.visit(ch)
+        self.sangria -= 1
         return None
 
-    def visitAugAssignStmt(self, ctx):
-        # ID ('+='|... ) expr ';'
-        kids = list(ctx.getChildren())
-        x = kids[0].getText()
-        op = kids[1].getText().replace('=','')
-        self.pad(f"{x} ← {x} {op} {self._ppExpr(ctx.expr())}")
+    # declaracion y asignacion de variables
+    def visitDecl(self, ctx: CPPParser.DeclContext):
+        tipo = ctx.decltype().getText()
+        nombre = ctx.ID().getText()
+        if ctx.expr() is not None:
+            self.imprimir("Se declara " + tipo + " " + nombre + " con valor " + ctx.expr().getText())
+        else:
+            self.imprimir("Se declara " + tipo + " " + nombre)
         return None
 
-    def visitIncDecStmt(self, ctx):
-        kids = list(ctx.getChildren())
-        x = kids[0].getText()
-        op = kids[1].getText()
-        self.pad(f"{x} ← {x} {'+ 1' if op=='++' else '- 1'}")
+    def visitAssign(self, ctx: CPPParser.AssignContext):
+        self.imprimir("Se actualiza " + ctx.ID().getText() + " con " + ctx.expr().getText())
         return None
 
-    def visitCoutStmt(self, ctx):
-        parts = [self._ppExpr(e) for e in ctx.expr()]
-        self.pad("mostrar " + " ; ".join(parts))
+    def visitAugAssignStmt(self, ctx: CPPParser.AugAssignStmtContext):
+        nombre_variable = ctx.ID().getText()
+        operador_compuesto = ctx.getChild(1).getText()  # "+=", "-=", "*=", "/=", "%="
+        valor = ctx.expr().getText()
+
+        simbolo = "+"
+        if operador_compuesto == "-=":
+            simbolo = "-"
+        elif operador_compuesto == "*=":
+            simbolo = "*"
+        elif operador_compuesto == "/=":
+            simbolo = "/"
+        elif operador_compuesto == "%=":
+            simbolo = "%"
+
+        self.imprimir("Se actualiza " + nombre_variable + ": " + nombre_variable + " = " + nombre_variable + " " + simbolo + " " + valor)
         return None
 
-    def visitCinStmt(self, ctx):
-        ids = [tok.getText() for tok in ctx.ID()]
-        self.pad("leer " + ", ".join(ids))
+    def visitIncDecStmt(self, ctx: CPPParser.IncDecStmtContext):
+        nombre = ctx.ID().getText()
+        op = ctx.getChild(1).getText()  # "++" o "--"
+        if op == "++":
+            self.imprimir("Se aumenta " + nombre + " en 1")
+        else:
+            self.imprimir("Se disminuye " + nombre + " en 1")
         return None
 
-    def visitExprStmt(self, ctx):
-        self.pad(self._ppExpr(ctx.expr()))
+    # cout y cin
+    def visitCoutStmt(self, ctx: CPPParser.CoutStmtContext):
+        texto = "Se muestra: "
+        primero = True
+        l = list(ctx.getChildren())
+        i = 0
+        while i < len(l):
+            tok = l[i].getText()
+            if tok == "<<" and i + 1 < len(l):
+                if not primero:
+                    texto = texto + " , "
+                texto = texto + l[i + 1].getText()  
+                primero = False
+                i = i + 2
+            else:
+                i = i + 1
+        self.imprimir(texto)
         return None
 
-    def visitIfStmt(self, ctx):
-        # 'if' '(' expr ')' stmt ('else' stmt)?
-        self.pad(f"si {self._ppExpr(ctx.expr())} entonces")
-        self.ind += 1
+    def visitCinStmt(self, ctx: CPPParser.CinStmtContext):
+        texto = "Se solicitan valores para: "
+        primero = True
+        l = list(ctx.getChildren())
+        i = 0
+        while i < len(l):
+            tok = l[i].getText()
+            if tok == ">>" and i + 1 < len(l):
+                if not primero:
+                    texto = texto + ", "
+                texto = texto + l[i + 1].getText() 
+                primero = False
+                i = i + 2
+            else:
+                i = i + 1
+        self.imprimir(texto)
+        return None
+
+    def visitExprStmt(self, ctx: CPPParser.ExprStmtContext):
+        self.imprimir("Se calcula: " + ctx.expr().getText())
+        return None
+
+    # if
+    def visitIfStmt(self, ctx: CPPParser.IfStmtContext):
+        condicion = ctx.expr().getText() if ctx.expr() is not None else ""
+        self.imprimir("Si " + condicion + ", se realiza lo siguiente:")
+        self.sangria += 1
         self.visit(ctx.stmt(0))
-        self.ind -= 1
-        if ctx.stmt(1) is not None:
-            self.pad("si no")
-            self.ind += 1
+        self.sangria -= 1
+        if len(ctx.stmt()) > 1:
+            self.imprimir("Si no, se realiza lo siguiente:")
+            self.sangria += 1
             self.visit(ctx.stmt(1))
-            self.ind -= 1
-        self.pad("fin si")
+            self.sangria -= 1
+        self.imprimir("Fin del si")
         return None
 
-    def visitWhileStmt(self, ctx):
-        self.pad(f"mientras {self._ppExpr(ctx.expr())} hacer")
-        self.ind += 1
+    # while
+    def visitWhileStmt(self, ctx: CPPParser.WhileStmtContext):
+        condicion = ctx.expr().getText() if ctx.expr() is not None else ""
+        self.imprimir("Mientras " + condicion + ", se repite:")
+        self.sangria += 1
         self.visit(ctx.stmt())
-        self.ind -= 1
-        self.pad("fin mientras")
+        self.sangria -= 1
+        self.imprimir("Fin del mientras")
         return None
 
-    def visitForStmt(self, ctx):
-        # 'for' '(' forInit? ';' forCond? ';' forPost? ')' stmt
-        init = self._ppForInit(ctx.forInit()) if ctx.forInit() else ""
-        cond = self._ppExpr(ctx.forCond().expr()) if ctx.forCond() else ""
-        post = self._ppForPost(ctx.forPost()) if ctx.forPost() else ""
-        self.pad(f"para ( {init} ; {cond} ; {post} )")
-        self.ind += 1
+    # for
+    def visitForStmt(self, ctx: CPPParser.ForStmtContext):
+        txt_init = ""
+        if ctx.forInit() is not None:
+            txt_init = self.forInitText(ctx.forInit())
+
+        txt_cond = ""
+        if ctx.forCond() is not None:
+            txt_cond = ctx.forCond().expr().getText()
+
+        txt_post = ""
+        if ctx.forPost() is not None:
+            txt_post = self.forPostText(ctx.forPost())
+
+        if txt_init == "":
+            txt_init = "—"
+        if txt_cond == "":
+            txt_cond = "—"
+        if txt_post == "":
+            txt_post = "—"
+
+        self.imprimir("Se ejecuta un ciclo para ( inicialización: " + txt_init +
+                      " ; condición: " + txt_cond +
+                      " ; actualización: " + txt_post + " ):")
+        self.sangria += 1
         self.visit(ctx.stmt())
-        self.ind -= 1
-        self.pad("fin para")
+        self.sangria -= 1
+        self.imprimir("Fin del para")
         return None
 
-    # ========== partes del for ==========
-    def _ppForInit(self, ctx:CPPParser.ForInitContext):
-        if ctx.decltype():
-            # decltype ID (=expr)? (',' ID (=expr)?)*
-            t = ctx.decltype().getText()
-            names = [tok.getText() for tok in ctx.ID()]
-            exprs = [self._ppExpr(e) for e in ctx.expr()]
-            out, ei = [], 0
-            for name in names:
-                if ei < len(exprs):
-                    out.append(f"declarar {t} {name} ← {exprs[ei]}"); ei += 1
+
+    # partes del for: inicializacion, condicion, actualizacion
+    def forInitText(self, ctx: CPPParser.ForInitContext):
+        if ctx.decltype() is not None:
+            tipo = ctx.decltype().getText()
+            texto = ""
+            primera = True
+            l = list(ctx.getChildren())
+            i = 0
+            while i < len(l):
+                tok = l[i].getText()
+                if tok == tipo or tok == ",":
+                    i = i + 1
+                    continue
+                if tok == "=":
+                    if i + 1 < len(l):
+                        texto = texto + " con " + l[i + 1].getText()
+                        i = i + 2
+                        continue
+                if not primera:
+                    texto = texto + " , "
+                texto = texto + "se declara " + tipo + " " + tok
+                primera = False
+                i = i + 1
+            return texto
+
+        texto = ""
+        primero = True
+        actual = ""
+        for hijo in ctx.getChildren():
+            tok = hijo.getText()
+            if tok == ",":
+                if primero:
+                    texto = texto + actual
+                    primero = False
                 else:
-                    out.append(f"declarar {t} {name}")
-            return " , ".join(out)
-        # postItem lista
-        return " , ".join(self._ppPostItem(pi) for pi in ctx.postItem())
+                    texto = texto + " , " + actual
+                actual = ""
+            else:
+                actual = actual + tok
+        if actual != "":
+            if primero:
+                texto = texto + actual
+            else:
+                texto = texto + " , " + actual
+        return texto
 
-    def _ppForPost(self, ctx:CPPParser.ForPostContext):
-        return " , ".join(self._ppPostItem(pi) for pi in ctx.postItem())
-
-    def _ppPostItem(self, pi):
-        cname = type(pi).__name__
-        if cname.endswith("PostAssign"):
-            return f"{pi.ID().getText()} ← {self._ppExpr(pi.expr())}"
-        if cname.endswith("PostAugAssign"):
-            x = pi.ID().getText()
-            op = pi.getChild(1).getText().replace('=','')
-            return f"{x} ← {x} {op} {self._ppExpr(pi.expr())}"
-        if cname.endswith("PostIncDecPost"):
-            x = pi.ID().getText()
-            op = pi.getChild(1).getText()
-            return f"{x} ← {x} {'+ 1' if op=='++' else '- 1'}"
-        if cname.endswith("PostIncDecPre"):
-            x = pi.ID().getText()
-            op = pi.getChild(0).getText()
-            return f"{x} ← {x} {'+ 1' if op=='++' else '- 1'}"
-        return "<postItem>"
-
-    # ========== pretty de expresiones (estilo simple como en clase) ==========
-    def _ppExpr(self, ectx:CPPParser.ExprContext):
-        cname = type(ectx).__name__
-        # unario
-        if cname.endswith("ExprUnary"):
-            op = ectx.getChild(0).getText()
-            return f"{op}{self._ppExpr(ectx.expr())}"
-        # ++i / i++
-        if cname.endswith("ExprPreIncDec"):
-            return f"{ectx.getChild(0).getText()}{ectx.ID().getText()}"
-        if cname.endswith("ExprPostIncDec"):
-            return f"{ectx.ID().getText()}{ectx.getChild(1).getText()}"
-        # binarios
-        if cname.endswith("ExprMulDiv") or cname.endswith("ExprAddSub") \
-           or cname.endswith("ExprRel") or cname.endswith("ExprEq") \
-           or cname.endswith("ExprAnd") or cname.endswith("ExprOr"):
-            left = self._ppExpr(ectx.expr(0))
-            op   = ectx.getChild(1).getText()
-            right= self._ppExpr(ectx.expr(1))
-            return f"{left} {op} {right}"
-        # paréntesis
-        if cname.endswith("ExprPar"):
-            return f"({self._ppExpr(ectx.expr())})"
-        # literal / var
-        if cname.endswith("ExprLiteral"):
-            return self._ppLit(ectx.literal())
-        if cname.endswith("ExprVar"):
-            return ectx.ID().getText()
-        # fallback
-        return ectx.getText()
-
-    def _ppLit(self, lctx:CPPParser.LiteralContext):
-        if lctx.INT():    return lctx.INT().getText()
-        if lctx.DOUBLE(): return lctx.DOUBLE().getText()
-        if lctx.BOOL():   return "verdadero" if lctx.BOOL().getText()=="true" else "falso"
-        if lctx.STRING(): return lctx.STRING().getText()  # deja comillas
-        return lctx.getText()
+    def forPostText(self, ctx: CPPParser.ForPostContext):
+        texto = ""
+        primero = True
+        actual = ""
+        for ch in ctx.getChildren():
+            tok = ch.getText()
+            if tok == ",":
+                if primero:
+                    texto = texto + actual
+                    primero = False
+                else:
+                    texto = texto + " , " + actual
+                actual = ""
+            else:
+                actual = actual + tok
+        if actual != "":
+            if primero:
+                texto = texto + actual
+            else:
+                texto = texto + " , " + actual
+        return texto
 ```
 ### 5. Programa de prueba (ejem.upc)
 ```bash
