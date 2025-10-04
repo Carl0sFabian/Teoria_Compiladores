@@ -227,7 +227,7 @@ ID           : [a-zA-Z_][a-zA-Z_0-9]* ;
 // espacios y comentarios
 WS           : [ \t\r\n]+ -> skip ;
 LINE_COMMENT : '//' ~[\r\n]* -> skip ;
-BLOCK_COMMENT: '/*' .*? '*/' -> skip ;%%writefile CPP.g4
+BLOCK_COMMENT: '/*' .*? '*/' -> skip ;
 ```
 ### 3. Generar el lexer y parser en Python
 ```bash
