@@ -84,472 +84,68 @@ Los integrantes para el desarrollo del proyecto son los siguientes:
   </tbody>
 </table>
 
-<center><h1>📁 Descripción del Codigo en Python </h1></center>
-A continuación se muestra el código explicado paso a paso.
 
-### 1. Instalación de dependencias
+<center><h1>✍🏻 Arquitectura del compilador </h1></center>
+<img src="./img/arquitectura-compilador.png", align="left">
+
+<center><h1>📁 Descripción de la aplicación con contenedores </h1></center>
+
+### 1. Clonar la imagen a utilizar para el contenedor
 
 ```bash
-!curl -O https://www.antlr.org/download/antlr-4.13.1-complete.jar
+docker pull petermontalvo09/llvm:1.0.0
 ```  
+
+### 2. Crear y ejecutar el contenedor
 ```bash
-!pip install -U antlr4-python3-runtime
+docker run --name trabajo-final-contenedor -it 
+```
+```bash
+docker start -ai trabajo-final-contenedor
 ```
 
-### 2. Creación de la gramática CPP.g4
+### 3. Crear los archivos a utilizar
 ```bash
-%%writefile CPP.g4
-grammar CPP;
-
-// PARSER
-prog: (decl|stmt)* EOF;
-
-// declaraciones
-decl
-  : decltype ID '=' expr ';'        // int x = 5;
-  | decltype ID ';'                 // int x;
-  ;
-
-// sentencias
-stmt
-  : '{' (decl | stmt)* '}'                                  #Block
-  | 'if' '(' expr ')' stmt ('else' stmt)?                   #IfStmt
-  | 'while' '(' expr ')' stmt                               #WhileStmt
-  | 'for' '(' forInit? ';' forCond? ';' forPost? ')' stmt   #ForStmt
-  | ID '=' expr ';'                                         #Assign
-  | ID ('+=' | '-=' | '*=' | '/=' | '%=') expr ';'          #AugAssignStmt
-  | ID ('++' | '--') ';'                                    #IncDecStmt
-  | 'cout' ('<<' expr)+ ';'                                 #CoutStmt
-  | 'cin'  ('>>' ID)+  ';'                                  #CinStmt
-  | expr ';'                                                #ExprStmt
-  ;
-
-// partes del for
-forInit
-  : decltype ID ('=' expr)? (',' ID ('=' expr)? )*
-  | postItem (',' postItem)*
-  ;
-forCond : expr ;
-forPost : postItem (',' postItem)* ;
-
-// i = 0, j += 2, k++
-postItem
-  : ID '=' expr                                            #PostAssign
-  | ID ('+=' | '-=' | '*=' | '/=' | '%=') expr             #PostAugAssign
-  | ID ('++' | '--')                                       #PostIncDecPost
-  | ('++' | '--') ID                                       #PostIncDecPre
-  ;
-
-
-// expresiones
-expr
-	: ('!' | '+' | '-') expr                               #exprUnary
-  | ('++' | '--') ID                                     #exprPreIncDec
-  | ID ('++' | '--')                                     #exprPostIncDec
-  | expr ('*' | '/' | '%') expr                          #exprMulDiv
-  | expr ('+' | '-') expr                                #exprAddSub
-  | expr ('<' | '<=' | '>' | '>=') expr                  #exprRel
-  | expr ('==' | '!=') expr                              #exprEq
-  | expr '&&' expr                                       #exprAnd
-  | expr '||' expr                                       #exprOr
-  | '(' expr ')'                                         #exprPar
-  | literal                                              #exprLiteral
-  | ID                                                   #exprVar
-  ;
-
-// literales y tipos
-literal
-    : INT
-    | DOUBLE
-    | BOOL
-    | STRING
-    ;
-decltype : 'int' | 'double' | 'bool' | 'string' ;
-
-
-// LEXER
-// tipo de variable
-TINT         : 'int' ;
-TDOUBLE      : 'double' ;
-TBOOL        : 'bool' ;
-TSTRING      : 'string' ;
-
-// palabras reservadas
-IF           : 'if' ;
-ELSE         : 'else' ;
-WHILE        : 'while' ;
-FOR          : 'for' ;
-COUT         : 'cout' ;
-CIN          : 'cin' ;
-
-// delimitadores
-SEMI         : ';' ;
-COMMA        : ',' ;
-LPAREN       : '(' ;
-RPAREN       : ')' ;
-LBRACE       : '{' ;
-RBRACE       : '}' ;
-
-// operadores
-ASSIGN       : '=' ;
-PLUS         : '+' ;
-MINUS        : '-' ;
-MUL          : '*' ;
-DIV          : '/' ;
-MOD          : '%' ;
-PLUSEQ       : '+=' ;
-MINUSEQ      : '-=' ;
-STAREQ       : '*=' ;
-DIVEQ        : '/=' ;
-MODEQ        : '%=' ;
-PLUSPLUS     : '++' ;
-MINUSMINUS   : '--' ;
-LT           : '<' ;
-LE           : '<=' ;
-GT           : '>' ;
-GE           : '>=' ;
-EQEQ         : '==' ;
-NEQ          : '!=' ;
-ANDAND       : '&&' ;
-OROR         : '||' ;
-NOT          : '!' ;
-SHL          : '<<' ; // para cout <<
-SHR          : '>>' ; // para cin >>
-
-// literales e identificadores
-BOOL         : 'true' | 'false' ;
-INT          : [0-9]+ ;
-DOUBLE       : [0-9]+ '.' [0-9]+ ;
-STRING       : '"' (~["\\] | '\\' .)* '"' ;
-ID           : [a-zA-Z_][a-zA-Z_0-9]* ;
-
-// espacios y comentarios
-WS           : [ \t\r\n]+ -> skip ;
-LINE_COMMENT : '//' ~[\r\n]* -> skip ;
-BLOCK_COMMENT: '/*' .*? '*/' -> skip ;
+touch CMakeLists.txt
+touch CodeGen.h
+touch CodeGen.cpp
+touch MiniCVisitorLLVM.h
+touch MiniCVisitorLLVM.cpp
+touch main.cpp
 ```
-### 3. Generar el lexer y parser en Python
+
+### 4. Limpiar compilaciones previas
 ```bash
-!java -jar antlr-4.13.1-complete.jar -Dlanguage=Python3 -visitor CPP.g4
+rm -rf build
 ```
-### 4. Visitor en Python (Visitor.py)
+
+### 5. Ejecutar ANTLR
 ```bash
-class Visitor(CPPVisitor):
-    def __init__(self):
-        self.sangria = 0  # nivel de sangría
-
-    def imprimir(self, texto):
-        print(("  " * self.sangria) + texto)
-
-    # program
-    def visitProg(self, ctx: CPPParser.ProgContext):
-        for ch in ctx.getChildren():
-            if ch.getChildCount() > 0:
-                self.visit(ch)
-        return None
-
-    # para actualizar sangría cuando se inicie un bloque de codigo
-    def visitBlock(self, ctx: CPPParser.BlockContext):
-        self.sangria += 1
-        for ch in ctx.getChildren():
-            if ch.getChildCount() > 0:  
-                self.visit(ch)
-        self.sangria -= 1
-        return None
-
-    # declaracion y asignacion de variables
-    def visitDecl(self, ctx: CPPParser.DeclContext):
-        tipo = ctx.decltype().getText()
-        nombre = ctx.ID().getText()
-        if ctx.expr() is not None:
-            self.imprimir("Se declara " + tipo + " " + nombre + " con valor " + ctx.expr().getText())
-        else:
-            self.imprimir("Se declara " + tipo + " " + nombre)
-        return None
-
-    def visitAssign(self, ctx: CPPParser.AssignContext):
-        self.imprimir("Se actualiza " + ctx.ID().getText() + " con " + ctx.expr().getText())
-        return None
-
-    def visitAugAssignStmt(self, ctx: CPPParser.AugAssignStmtContext):
-        nombre_variable = ctx.ID().getText()
-        operador_compuesto = ctx.getChild(1).getText()  # "+=", "-=", "*=", "/=", "%="
-        valor = ctx.expr().getText()
-
-        simbolo = "+"
-        if operador_compuesto == "-=":
-            simbolo = "-"
-        elif operador_compuesto == "*=":
-            simbolo = "*"
-        elif operador_compuesto == "/=":
-            simbolo = "/"
-        elif operador_compuesto == "%=":
-            simbolo = "%"
-
-        self.imprimir("Se actualiza " + nombre_variable + ": " + nombre_variable + " = " + nombre_variable + " " + simbolo + " " + valor)
-        return None
-
-    def visitIncDecStmt(self, ctx: CPPParser.IncDecStmtContext):
-        nombre = ctx.ID().getText()
-        op = ctx.getChild(1).getText()  # "++" o "--"
-        if op == "++":
-            self.imprimir("Se aumenta " + nombre + " en 1")
-        else:
-            self.imprimir("Se disminuye " + nombre + " en 1")
-        return None
-
-    # cout y cin
-    def visitCoutStmt(self, ctx: CPPParser.CoutStmtContext):
-        texto = "Se muestra: "
-        primero = True
-        l = list(ctx.getChildren())
-        i = 0
-        while i < len(l):
-            tok = l[i].getText()
-            if tok == "<<" and i + 1 < len(l):
-                if not primero:
-                    texto = texto + " , "
-                texto = texto + l[i + 1].getText()  
-                primero = False
-                i = i + 2
-            else:
-                i = i + 1
-        self.imprimir(texto)
-        return None
-
-    def visitCinStmt(self, ctx: CPPParser.CinStmtContext):
-        texto = "Se solicitan valores para: "
-        primero = True
-        l = list(ctx.getChildren())
-        i = 0
-        while i < len(l):
-            tok = l[i].getText()
-            if tok == ">>" and i + 1 < len(l):
-                if not primero:
-                    texto = texto + ", "
-                texto = texto + l[i + 1].getText() 
-                primero = False
-                i = i + 2
-            else:
-                i = i + 1
-        self.imprimir(texto)
-        return None
-
-    def visitExprStmt(self, ctx: CPPParser.ExprStmtContext):
-        mensaje = self.visit(ctx.expr())
-        if mensaje is not None:
-            self.imprimir(mensaje)
-        else:
-            self.imprimir("Se calcula: " + ctx.expr().getText())
-
-    def visitExprUnary(self, ctx: CPPParser.ExprUnaryContext):
-        l = list(ctx.getChildren())    # ('!'| '+'| '-') expr
-        op = l[0].getText()
-        sub = l[1].getText()
-        if op == '!':
-            return "Se niega " + sub
-        elif op == '+':
-            return "Se aplica signo positivo a " + sub
-        else:  # '-'
-            return "Se aplica signo negativo a " + sub
-
-    def visitExprPreIncDec(self, ctx: CPPParser.ExprPreIncDecContext):
-        l = list(ctx.getChildren())          # ('++'|'--') expr
-        op = l[0].getText()
-        var = l[1].getText()
-        if op == '++':
-            return "Se aumenta " + var + " en 1"
-        else:
-            return "Se disminuye " + var + " en 1"
-
-    def visitExprPostIncDec(self, ctx: CPPParser.ExprPostIncDecContext):
-        l = list(ctx.getChildren())          # expr ('++'|'--')
-        var = l[0].getText()
-        op  = l[1].getText()
-        if op == '++':
-            return "Se aumenta " + var + " en 1"
-        else:
-            return "Se disminuye " + var + " en 1"
-
-    def visitExprEq(self, ctx: CPPParser.ExprEqContext):
-        l = list(ctx.getChildren())          # expr ('=='|'!=') expr
-        op = l[1].getText()
-        op_txt = "igual a" if op == "==" else "distinto de"
-        return "Se compara: " + l[0].getText() + " " + op_txt + " " + l[2].getText()
-
-    def visitExprAnd(self, ctx: CPPParser.ExprAndContext):
-        l = list(ctx.getChildren())          # expr '&&' expr
-        left_txt  = l[0].getText()
-        right_txt = l[2].getText()
-        return "Se evalúa (" + left_txt + ") y (" + right_txt + ")"
-
-    def visitExprOr(self, ctx: CPPParser.ExprOrContext):
-        l = list(ctx.getChildren())          # expr '||' expr
-        left_txt  = l[0].getText()
-        right_txt = l[2].getText()
-        return "Se evalúa (" + left_txt + ") o (" + right_txt + ")"
-
-
-    # if
-    def visitIfStmt(self, ctx: CPPParser.IfStmtContext):
-        condicion = ctx.expr().getText() if ctx.expr() is not None else ""
-        self.imprimir("Si " + condicion + ", se realiza lo siguiente:")
-        self.sangria += 1
-        self.visit(ctx.stmt(0))
-        self.sangria -= 1
-        if len(ctx.stmt()) > 1:
-            self.imprimir("Si no, se realiza lo siguiente:")
-            self.sangria += 1
-            self.visit(ctx.stmt(1))
-            self.sangria -= 1
-        self.imprimir("Fin del si")
-        return None
-
-    # while
-    def visitWhileStmt(self, ctx: CPPParser.WhileStmtContext):
-        condicion = ctx.expr().getText() if ctx.expr() is not None else ""
-        self.imprimir("Mientras " + condicion + ", se repite:")
-        self.sangria += 1
-        self.visit(ctx.stmt())
-        self.sangria -= 1
-        self.imprimir("Fin del mientras")
-        return None
-
-    # for
-    def visitForStmt(self, ctx: CPPParser.ForStmtContext):
-        txt_init = ""
-        if ctx.forInit() is not None:
-            txt_init = self.forInitText(ctx.forInit())
-
-        txt_cond = ""
-        if ctx.forCond() is not None:
-            txt_cond = ctx.forCond().expr().getText()
-
-        txt_post = ""
-        if ctx.forPost() is not None:
-            txt_post = self.forPostText(ctx.forPost())
-
-        if txt_init == "":
-            txt_init = "—"
-        if txt_cond == "":
-            txt_cond = "—"
-        if txt_post == "":
-            txt_post = "—"
-
-        self.imprimir("Se ejecuta un ciclo para ( inicialización: " + txt_init +
-                      " ; condición: " + txt_cond +
-                      " ; actualización: " + txt_post + " ):")
-        self.sangria += 1
-        self.visit(ctx.stmt())
-        self.sangria -= 1
-        self.imprimir("Fin del para")
-        return None
-
-
-    # partes del for: inicializacion, condicion, actualizacion
-    def forInitText(self, ctx: CPPParser.ForInitContext):
-        if ctx.decltype() is not None:
-            tipo = ctx.decltype().getText()
-            texto = ""
-            primera = True
-            l = list(ctx.getChildren())
-            i = 0
-            while i < len(l):
-                tok = l[i].getText()
-                if tok == tipo or tok == ",":
-                    i = i + 1
-                    continue
-                if tok == "=":
-                    if i + 1 < len(l):
-                        texto = texto + " con " + l[i + 1].getText()
-                        i = i + 2
-                        continue
-                if not primera:
-                    texto = texto + " , "
-                texto = texto + "se declara " + tipo + " " + tok
-                primera = False
-                i = i + 1
-            return texto
-
-        texto = ""
-        primero = True
-        actual = ""
-        for hijo in ctx.getChildren():
-            tok = hijo.getText()
-            if tok == ",":
-                if primero:
-                    texto = texto + actual
-                    primero = False
-                else:
-                    texto = texto + " , " + actual
-                actual = ""
-            else:
-                actual = actual + tok
-        if actual != "":
-            if primero:
-                texto = texto + actual
-            else:
-                texto = texto + " , " + actual
-        return texto
-
-    def forPostText(self, ctx: CPPParser.ForPostContext):
-        texto = ""
-        primero = True
-        actual = ""
-        for ch in ctx.getChildren():
-            tok = ch.getText()
-            if tok == ",":
-                if primero:
-                    texto = texto + actual
-                    primero = False
-                else:
-                    texto = texto + " , " + actual
-                actual = ""
-            else:
-                actual = actual + tok
-        if actual != "":
-            if primero:
-                texto = texto + actual
-            else:
-                texto = texto + " , " + actual
-        return texto
+antlr4 -Dlanguage=Cpp -visitor MiniC.g4
 ```
-### 5. Programa de prueba (ejem.upc)
+
+### 6. Ingresar programa de código fuente
 ```bash
-%%writefile ejem.upc
-int x = 0;
-int y;
-for (int i = 0, j = 2; i < j; i++, --j) {
-  if (i == 1) cout << "ok" << i;
-  else x += i;
-}
-x = x + 3;
-while (x > 0) { x--; }
-cin >> x >> y;
+mkdir build && cd build
+cmake ..
+make -j
+touch EjemplosMiniC.mc
 ```
-### 6. Ejecución del compilador
+
+### 7. Compilar el programa
 ```bash
-input_stream = FileStream('ejem.upc')
-lexer = CPPLexer(input_stream)
-token_stream = CommonTokenStream(lexer)
-parser = CPPParser(token_stream)
-tree = parser.prog()
-visitor = Visitor()
-visitor.visit(tree)
+./minic EjemplosMiniC.mc
+clang out.ll -o out_exec
 ```
+
+### 8. Ejecutar el programa
+```bash
+./out_exec
+```
+
 ### 7. Resultado de la ejecución
-```bash
-Se declara int x con valor 0
-Se declara int y
-Se ejecuta un ciclo para ( inicialización: se declara int i con 0 , se declara int j con 2 ; condición: i<j ; actualización: i++ , --j ):
-    Si i==1, se realiza lo siguiente:
-      Se muestra: "ok" , i
-    Si no, se realiza lo siguiente:
-      Se actualiza x: x = x + i
-    Fin del si
-Fin del para
-Se actualiza x con x+3
-Mientras x>0, se repite:
-    Se disminuye x en 1
-Fin del mientras
-Se solicitan valores para: x, y
+Código fuente del ejemplo en *EjemplosMiniC.mc*
+<img src="./img/ejemplo1.png">
+
+Resultado del ejemplo en *EjemplosMiniC.mc*
+<img src="./img/ejemplo1_res.png">
