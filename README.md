@@ -6,10 +6,9 @@
 <p style="margin: 0; padding-top: 22px; text-align:right;">1ACC0218-2520-1733 - Teoría de Compiladores </p>
 <p style="margin: 0; text-align:right;">2025 · Compilador</p> 
 <p style="margin: 0; text-align:right;">Prof: <b>Peter Jonathan Montalvo Garcia</b></p>
-<p style="margin: 0; text-align:right; padding-button: 100px;">Integrante 1: <b>Fong Saravia Alexandra  </b> - <a href="">U202216001@upc.edu.pe</a></p>
-<p style="margin: 0; text-align:right; padding-button: 100px;">Integrante 2: <b>Mendoza Quispe Carlos Fabian  </b> - <a href="">U20231C416@upc.edu.pe</a></p>
-<p style="margin: 0; text-align:right; padding-button: 100px;">Integrante 3: <b>Ibarra Cabrera Camila Adriana </b> - <a href="">U202317287@upc.edu.pe</a></p>
-<p style="margin: 0; text-align:right; padding-button: 100px;">Integrante 4: <b>Rojas Sánchez Patricia Lucía del Rosario</b> - <a href="">U202310474@upc.edu.pe</a></p>
+<p style="margin: 0; text-align:right; padding-button: 100px;">Integrante 1: <b>Mendoza Quispe Carlos Fabian  </b> - <a href="">U20231C416@upc.edu.pe</a></p>
+<p style="margin: 0; text-align:right; padding-button: 100px;">Integrante 2: <b>Ibarra Cabrera Camila Adriana </b> - <a href="">U202317287@upc.edu.pe</a></p>
+<p style="margin: 0; text-align:right; padding-button: 100px;">Integrante 3: <b>Rojas Sánchez Patricia Lucía del Rosario</b> - <a href="">U202310474@upc.edu.pe</a></p>
 </div>
 </div>
 <div style="width:100%;">&nbsp;</div>
